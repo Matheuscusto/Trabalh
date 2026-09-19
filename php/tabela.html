@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Relatorios | Controle de Estoque</title>
+	<style>
+		:root {
+			--ink: #203039;
+			--muted: #66757d;
+			--line: #dce5e7;
+			--paper: #f7faf8;
+			--white: #ffffff;
+			--accent: #087f70;
+			--accent-dark: #075b52;
+			--warning: #8a5a00;
+		}
+
+		* { box-sizing: border-box; }
+
+		body {
+			margin: 0;
+			color: var(--ink);
+			background: var(--paper);
+			font-family: Georgia, "Times New Roman", serif;
+		}
+
+		header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 1rem;
+			padding: 1.2rem clamp(1rem, 5vw, 5rem);
+			background: var(--white);
+			border-bottom: 1px solid var(--line);
+		}
+
+		header a { color: var(--accent-dark); font-weight: bold; text-decoration: none; }
+		main { width: min(1100px, calc(100% - 2rem)); margin: 3rem auto; }
+		.eyebrow { margin: 0 0 .5rem; color: var(--accent); font: 700 .75rem Arial, sans-serif; letter-spacing: .12em; text-transform: uppercase; }
+		h1 { max-width: 650px; margin: 0; font-size: clamp(2rem, 5vw, 4rem); line-height: 1; }
+		.intro { max-width: 650px; color: var(--muted); font: 1rem/1.6 Arial, sans-serif; }
+		.grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; margin-top: 2rem; }
+		.panel { padding: 1.5rem; background: var(--white); border: 1px solid var(--line); border-radius: 8px; }
+		.panel h2 { margin-top: 0; font-size: 1.35rem; }
+		label { display: block; margin: 1rem 0 .4rem; color: var(--muted); font: 700 .8rem Arial, sans-serif; }
+		input[type="url"], input[type="file"] { width: 100%; padding: .8rem; border: 1px solid #b8c9cc; border-radius: 5px; background: #fff; font: .9rem Arial, sans-serif; }
+		button, .button { display: inline-block; margin-top: 1rem; padding: .75rem 1rem; color: #fff; background: var(--accent); border: 0; border-radius: 5px; cursor: pointer; font: 700 .9rem Arial, sans-serif; text-decoration: none; }
+		button:hover, .button:hover { background: var(--accent-dark); }
+		.hint, .status { color: var(--muted); font: .85rem/1.5 Arial, sans-serif; }
+		.status { min-height: 2.5rem; margin-top: 1rem; padding: .7rem; background: #f2f7f5; border-left: 3px solid var(--accent); }
+		.warning { color: var(--warning); background: #fff8e8; border-left-color: #d99a21; }
+		#viewer { display: none; margin-top: 1rem; overflow: hidden; border: 1px solid var(--line); border-radius: 5px; background: #eef3f1; }
+		#viewer iframe { display: block; width: 100%; min-height: 620px; border: 0; }
+		.file-info { margin-top: 1rem; font: .9rem/1.5 Arial, sans-serif; }
+		@media (max-width: 720px) {
+			header { align-items: flex-start; flex-direction: column; }
+			main { margin-top: 2rem; }
+			.grid { grid-template-columns: 1fr; }
+			#viewer iframe { min-height: 480px; }
+		}
+	</style>
+</head>
+<body>
+	<header>
+		<strong>Controle de Estoque</strong>
+		<a href="../index.html">Voltar ao inicio</a>
+	</header>
+
+	<main>
+		<p class="eyebrow">Central de relatorios</p>
+		<h1>Abra seu relatorio no navegador.</h1>
+		<p class="intro">Use a URL de um relatorio publicado no Power BI para visualiza-lo nesta pagina. Arquivos locais do Power BI Desktop podem ser selecionados para abertura no aplicativo instalado.</p>
+
+		<section class="grid" aria-label="Opcoes de abertura">
+			<div class="panel">
+				<h2>Relatorio publicado</h2>
+				<p class="hint">Cole uma URL de incorporacao ou de compartilhamento do Power BI.</p>
+				<label for="powerBiUrl">URL do Power BI</label>
+				<input id="powerBiUrl" type="url" placeholder="https://app.powerbi.com/view?r=..." autocomplete="off">
+				<button id="openUrl" type="button">Abrir no painel</button>
+				<p id="urlStatus" class="status" role="status">O painel sera carregado abaixo.</p>
+			</div>
+
+			<div class="panel">
+				<h2>Compartilhar arquivo</h2>
+				<p class="hint">Envie o arquivo para este servidor. As outras pessoas poderao baixa-lo nesta mesma pagina.</p>
+				<form id="uploadForm" enctype="multipart/form-data">
+					<label for="reportFile">Arquivo do relatorio</label>
+					<input id="reportFile" name="report" type="file" accept=".pbi,.pbix,.pbit" required>
+					<button type="submit">Enviar arquivo</button>
+				</form>
+				<p id="uploadStatus" class="status" role="status">Formatos aceitos: .pbi, .pbix e .pbit.</p>
+			</div>
+		</section>
+
+		<section class="panel" style="margin-top: 1rem;">
+			<h2>Arquivos disponiveis</h2>
+			<p class="hint">Baixe um arquivo e abra-o no Power BI Desktop.</p>
+			<div id="fileList" class="file-info" aria-live="polite">Carregando arquivos...</div>
+		</section>
+
+		<div id="viewer" aria-label="Visualizador do Power BI"></div>
+	</main>
+
+	<script>
+		const urlInput = document.getElementById('powerBiUrl');
+		const urlStatus = document.getElementById('urlStatus');
+		const viewer = document.getElementById('viewer');
+		const uploadForm = document.getElementById('uploadForm');
+		const uploadStatus = document.getElementById('uploadStatus');
+		const fileList = document.getElementById('fileList');
+
+		document.getElementById('openUrl').addEventListener('click', () => {
+			const value = urlInput.value.trim();
+			let url;
+
+			try {
+				url = new URL(value);
+			} catch (error) {
+				urlStatus.textContent = 'Informe uma URL valida do Power BI.';
+				urlStatus.classList.add('warning');
+				return;
+			}
+
+			if (!['http:', 'https:'].includes(url.protocol)) {
+				urlStatus.textContent = 'A URL precisa usar http ou https.';
+				urlStatus.classList.add('warning');
+				return;
+			}
+
+			const iframe = document.createElement('iframe');
+			iframe.src = url.href;
+			iframe.title = 'Relatorio do Power BI';
+			iframe.allowFullscreen = true;
+			viewer.replaceChildren(iframe);
+			viewer.style.display = 'block';
+			urlStatus.textContent = 'Relatorio carregado no painel abaixo. Se ele bloquear a incorporacao, use a configuracao de compartilhamento do Power BI.';
+			urlStatus.classList.remove('warning');
+		});
+
+		async function loadFiles() {
+			const response = await fetch('upload.php');
+			const files = await response.json();
+			fileList.replaceChildren();
+
+			if (!files.length) {
+				fileList.textContent = 'Nenhum arquivo enviado ainda.';
+				return;
+			}
+
+			files.forEach((file) => {
+				const item = document.createElement('p');
+				const link = document.createElement('a');
+				link.href = file.url;
+				link.className = 'button';
+				link.textContent = `Baixar ${file.name}`;
+				item.append(`${file.name} (${file.size}) `);
+				item.append(link);
+				fileList.append(item);
+			});
+		}
+
+		uploadForm.addEventListener('submit', async (event) => {
+			event.preventDefault();
+			uploadStatus.textContent = 'Enviando arquivo...';
+			uploadStatus.classList.remove('warning');
+
+			try {
+				const response = await fetch('upload.php', { method: 'POST', body: new FormData(uploadForm) });
+				const result = await response.json();
+				if (!response.ok) throw new Error(result.error || 'Nao foi possivel enviar o arquivo.');
+				uploadStatus.textContent = result.message;
+				uploadForm.reset();
+				await loadFiles();
+			} catch (error) {
+				uploadStatus.textContent = error.message;
+				uploadStatus.classList.add('warning');
+			}
+		});
+
+		loadFiles().catch(() => {
+			fileList.textContent = 'Nao foi possivel carregar os arquivos. Verifique se o PHP esta ativo no XAMPP.';
+		});
+	</script>
+</body>
+</html>

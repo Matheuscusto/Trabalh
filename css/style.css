@@ -1,0 +1,29 @@
+/* Transforma o header em um container flexível */
+.cabecalho {
+    display: flex;
+    justify-content: space-between; /* Esfria o título à esquerda e o botão à direita */
+    align-items: center;            /* Alinha ambos verticalmente no centro */
+    padding: 15px 30px;
+    background-color: #f4f4f4;
+}
+
+/* Ajusta o título */
+.logo {
+    margin: 0;
+    font-size: 1.5rem;
+}
+
+/* Estiliza o link para parecer um botão */
+.btn-login {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #2e7d32;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    font-weight: bold;
+}
+
+.btn-login:hover {
+    background-color: #1b5e20;
+}
